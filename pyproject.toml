@@ -10,11 +10,3 @@ dependencies = [
     "gunicorn>=23.0.0",
     "psycopg>=3.3.2",
 ]
-
-[tool.ruff]
-ignore = [
-    "CPY001",
-    "D100", "D101", "D102", "D104", "D105", "D106",
-    "DOC201",
-    "RUF001", "RUF002", "RUF003"
-]
