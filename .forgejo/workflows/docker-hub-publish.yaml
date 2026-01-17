@@ -1,0 +1,61 @@
+name: Сборка и публикация образа в Docker Hub
+
+on:
+  workflow_dispatch:
+    inputs:
+      push:
+        type: boolean
+        description: Опубликовать образ?
+        required: false
+        default: true
+      registry:
+        type: string
+        description: Реестр
+        required: true
+        default: "docker.io"
+      name:
+        type: string
+        description: Имя образа
+        required: true
+        default: "web-2025"
+      tag:
+        type: string
+        description: Тег образа
+        required: true
+        default: "forgejo-ci-cd"
+
+jobs:
+  build-and-push:
+    runs-on: docker
+    container:
+      image: docker:cli
+      env:
+        NODE_EXTRA_CA_CERTS: /usr/local/share/ca-certificates/home-ca.crt
+
+    steps:
+      - name: Установка Node.js
+        run: |
+          apk add --no-cache nodejs
+
+      - name: Добавление корневого сертификата
+        run: |
+          mkdir -p /usr/local/share/ca-certificates
+          echo "${{ vars.HOME_CA }}" > /usr/local/share/ca-certificates/home-ca.crt
+          update-ca-certificates
+
+      - name: Получение кода из репозитория
+        uses: actions/checkout@v6
+
+      - name: Вход в Docker Hub
+        uses: https://github.com/docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Сборка и публикация образа
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: ${{ inputs.push }}
+          tags: ${{ inputs.registry }}/${{ vars.DOCKER_HUB_USERNAME }}/${{ inputs.name }}:${{ inputs.tag }}
