@@ -12,24 +12,38 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from pathlib import Path
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
-
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = r"|Zpg8A,q*jZXmhDzK`mJ0ay2T1hAION\]Vo;#oONlf6|qgZr)phdFY.$Mh%S6Lh$"
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+BASE_DIR = Path(__file__).resolve().parent.parent
 
-ALLOWED_HOSTS = ["fefu-django-app"]
-CSRF_TRUSTED_ORIGINS = ["http://fefu-django-app"]
+ENV = os.environ.get("DJANGO_ENV", "development").lower()
+IS_DEVELOPMENT = ENV == "development"
+IS_PRODUCTION = ENV == "production"
 
+DEBUG = not IS_PRODUCTION
 
-# Application definition
+# Database
+
+if IS_DEVELOPMENT:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        },
+    }
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "HOST": os.environ.get("DJANGO_POSTGRES_HOST", "localhost"),
+            "PORT": os.environ.get("DJANGO_POSTGRES_PORT", "5432"),
+            "USER": os.environ.get("DJANGO_POSTGRES_USER", "fefu-lab"),
+            "PASSWORD": os.environ.get("DJANGO_POSTGRES_PASSWORD", "E1i26ZFa4b5L8UdE"),
+            "NAME": os.environ.get("DJANGO_POSTGRES_NAME", "fefu-lab"),
+        },
+    }
+
+# Apps
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -51,8 +65,6 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "web_2025.urls"
-
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -68,30 +80,24 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "web_2025.wsgi.application"
+# Security
 
-
-# Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
-DATABASES = {
-    # "default": {
-    #     "ENGINE": "django.db.backends.sqlite3",
-    #     "NAME": BASE_DIR / "db.sqlite3",
-    # },
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "HOST": "localhost",
-        "PORT": "5432",
-        "USER": "fefu-lab",
-        "PASSWORD": "E1i26ZFa4b5L8UdE",
-        "NAME": "fefu-lab",
-    },
-}
-
-
-# Password validation
-# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
+if IS_DEVELOPMENT:
+    ALLOWED_HOSTS = ["*"]
+    CSRF_TRUSTED_ORIGINS = ["http://*"]
+else:
+    allowed_host = os.environ.get("DJANGO_ALLOWED_HOST", "*").lower()
+    ALLOWED_HOSTS = [
+        # Нужен для HEALTHCHECK проверок. Лучше переписал бы так, чтобы была CLI утилита
+        # или HTTP ручка на /health. Причина - желание избежать использования
+        # внешних утилит, таких как curl, которые вносят угрозы безопасности.
+        "localhost",
+        allowed_host,
+    ]
+    CSRF_TRUSTED_ORIGINS = [
+        "http://localhost",
+        f"http://{allowed_host}",
+    ]
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -108,41 +114,18 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
-# Internationalization
-# https://docs.djangoproject.com/en/5.2/topics/i18n/
-
-LANGUAGE_CODE = "ru-ru"
-
-TIME_ZONE = "Asia/Vladivostok"
-
-USE_I18N = True
-
-USE_TZ = True
-
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.2/howto/static-files/
-
-STATIC_URL = "static/"
-STATIC_ROOT = Path(os.environ.get("STATIC_ROOT", "/var/www/fefu-lab/static"))
-
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
-
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
-# Custom
-
 PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.Argon2PasswordHasher",
     "django.contrib.auth.hashers.PBKDF2PasswordHasher",
     "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
 ]
 
-LOGIN_URL = "/login/"
-LOGIN_REDIRECT_URL = "/profile/"
-LOGOUT_REDIRECT_URL = "/"
+AUTHENTICATION_BACKENDS = [
+    "fefu_lab.backends.EmailBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+
+# Session
 
 SESSION_COOKIE_AGE = 1209600
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
@@ -150,7 +133,29 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
 
-AUTHENTICATION_BACKENDS = [
-    "fefu_lab.backends.EmailBackend",
-    "django.contrib.auth.backends.ModelBackend",
-]
+# Internationalization
+
+LANGUAGE_CODE = "ru-ru"
+
+TIME_ZONE = "Asia/Vladivostok"
+USE_I18N = True
+USE_TZ = True
+
+# Static files (CSS, JavaScript, Images)
+
+STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "static"
+
+# Path consts
+
+LOGIN_URL = "/login/"
+LOGIN_REDIRECT_URL = "/profile/"
+LOGOUT_REDIRECT_URL = "/"
+
+# Other consts
+
+ROOT_URLCONF = "web_2025.urls"
+WSGI_APPLICATION = "web_2025.wsgi.application"
+ASGI_APPLICATION = "web_2025.asgi.application"
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
